@@ -8,5 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Import/Export data
 data/
-/report.jsonl

@@ -1,0 +1,235 @@
+"""Search API endpoints."""
+
+from fastapi import APIRouter, HTTPException, Query
+
+from src.api.schemas import (
+    AutocompleteResponse,
+    Facets,
+    FacetBucket,
+    ProductResult,
+    SearchResponse,
+)
+from src.config import settings
+from src.search.client import client
+
+router = APIRouter(prefix="/api/v1", tags=["search"])
+
+
+def build_search_query(
+    q: str | None,
+    manufacturer: str | None,
+    eclass_id: str | None,
+    price_min: float | None,
+    price_max: float | None,
+) -> dict:
+    """Build OpenSearch query from parameters."""
+    must = []
+    filter_clauses = []
+
+    # Full-text search
+    if q:
+        must.append(
+            {
+                "multi_match": {
+                    "query": q,
+                    "fields": [
+                        "description_short^3",
+                        "description_long",
+                        "manufacturer_name^2",
+                        "supplier_aid",
+                        "ean",
+                    ],
+                    "type": "best_fields",
+                    "fuzziness": "AUTO",
+                }
+            }
+        )
+
+    # Manufacturer filter
+    if manufacturer:
+        filter_clauses.append({"term": {"manufacturer_name.keyword": manufacturer}})
+
+    # ECLASS filter
+    if eclass_id:
+        filter_clauses.append({"term": {"eclass_id": eclass_id}})
+
+    # Price range filter
+    if price_min is not None or price_max is not None:
+        price_range = {}
+        if price_min is not None:
+            price_range["gte"] = price_min
+        if price_max is not None:
+            price_range["lte"] = price_max
+        filter_clauses.append({"range": {"price_amount": price_range}})
+
+    # Build final query
+    if must or filter_clauses:
+        query = {
+            "bool": {
+                "must": must if must else [{"match_all": {}}],
+                "filter": filter_clauses,
+            }
+        }
+    else:
+        query = {"match_all": {}}
+
+    return query
+
+
+@router.get("/search", response_model=SearchResponse)
+async def search_products(
+    q: str | None = Query(None, description="Search query"),
+    manufacturer: str | None = Query(None, description="Filter by manufacturer"),
+    eclass_id: str | None = Query(None, description="Filter by ECLASS ID"),
+    price_min: float | None = Query(None, ge=0, description="Minimum price"),
+    price_max: float | None = Query(None, ge=0, description="Maximum price"),
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Results per page"),
+) -> SearchResponse:
+    """
+    Search products with full-text search and faceted filtering.
+    """
+    query = build_search_query(q, manufacturer, eclass_id, price_min, price_max)
+
+    body = {
+        "query": query,
+        "from": (page - 1) * size,
+        "size": size,
+        "aggs": {
+            "manufacturers": {
+                "terms": {"field": "manufacturer_name.keyword", "size": 50}
+            },
+            "eclass_ids": {"terms": {"field": "eclass_id", "size": 50}},
+        },
+    }
+
+    response = client.search(index=settings.opensearch_index, body=body)
+
+    # Parse results
+    hits = response["hits"]
+    results = []
+    for hit in hits["hits"]:
+        source = hit["_source"]
+        results.append(
+            ProductResult(
+                supplier_aid=source.get("supplier_aid"),
+                ean=source.get("ean"),
+                manufacturer_aid=source.get("manufacturer_aid"),
+                manufacturer_name=source.get("manufacturer_name"),
+                description_short=source.get("description_short"),
+                description_long=source.get("description_long"),
+                eclass_id=source.get("eclass_id"),
+                price_amount=source.get("price_amount"),
+                price_currency=source.get("price_currency"),
+                image=source.get("image"),
+            )
+        )
+
+    # Parse facets
+    aggs = response.get("aggregations", {})
+    facets = Facets(
+        manufacturers=[
+            FacetBucket(value=b["key"], count=b["doc_count"])
+            for b in aggs.get("manufacturers", {}).get("buckets", [])
+        ],
+        eclass_ids=[
+            FacetBucket(value=b["key"], count=b["doc_count"])
+            for b in aggs.get("eclass_ids", {}).get("buckets", [])
+        ],
+    )
+
+    return SearchResponse(
+        total=hits["total"]["value"],
+        page=page,
+        size=size,
+        results=results,
+        facets=facets,
+    )
+
+
+@router.get("/search/autocomplete", response_model=AutocompleteResponse)
+async def autocomplete(
+    q: str = Query(..., min_length=2, description="Partial search term"),
+) -> AutocompleteResponse:
+    """
+    Get autocomplete suggestions for search terms.
+    """
+    body = {
+        "query": {
+            "match": {
+                "description_short.autocomplete": {
+                    "query": q,
+                    "operator": "and",
+                }
+            }
+        },
+        "size": 10,
+        "_source": ["description_short"],
+    }
+
+    response = client.search(index=settings.opensearch_index, body=body)
+
+    # Extract unique suggestions
+    suggestions = []
+    seen = set()
+    for hit in response["hits"]["hits"]:
+        desc = hit["_source"].get("description_short", "")
+        if desc and desc not in seen:
+            suggestions.append(desc)
+            seen.add(desc)
+
+    return AutocompleteResponse(suggestions=suggestions[:10])
+
+
+@router.get("/products/{supplier_aid}", response_model=ProductResult)
+async def get_product(supplier_aid: str) -> ProductResult:
+    """
+    Get a single product by supplier article ID.
+    """
+    try:
+        response = client.get(index=settings.opensearch_index, id=supplier_aid)
+        source = response["_source"]
+        return ProductResult(
+            supplier_aid=source.get("supplier_aid"),
+            ean=source.get("ean"),
+            manufacturer_aid=source.get("manufacturer_aid"),
+            manufacturer_name=source.get("manufacturer_name"),
+            description_short=source.get("description_short"),
+            description_long=source.get("description_long"),
+            eclass_id=source.get("eclass_id"),
+            price_amount=source.get("price_amount"),
+            price_currency=source.get("price_currency"),
+            image=source.get("image"),
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+
+@router.get("/facets", response_model=Facets)
+async def get_facets() -> Facets:
+    """
+    Get all available facet values for filtering.
+    """
+    body = {
+        "size": 0,
+        "aggs": {
+            "manufacturers": {
+                "terms": {"field": "manufacturer_name.keyword", "size": 100}
+            },
+            "eclass_ids": {"terms": {"field": "eclass_id", "size": 100}},
+        },
+    }
+
+    response = client.search(index=settings.opensearch_index, body=body)
+    aggs = response.get("aggregations", {})
+
+    return Facets(
+        manufacturers=[
+            FacetBucket(value=b["key"], count=b["doc_count"])
+            for b in aggs.get("manufacturers", {}).get("buckets", [])
+        ],
+        eclass_ids=[
+            FacetBucket(value=b["key"], count=b["doc_count"])
+            for b in aggs.get("eclass_ids", {}).get("buckets", [])
+        ],
+    )
