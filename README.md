@@ -101,6 +101,8 @@ Environment variables (or `.env` file):
 | `OPENSEARCH_PORT` | 9200 | OpenSearch port |
 | `OPENSEARCH_INDEX` | products | Index name |
 
+> **Note:** The defaults in `src/config.py` match the credentials in `docker-compose.yml`, so no `.env` file is required for local development. For production, override these values via environment variables or a `.env` file.
+
 ## Just Commands
 
 | Command | Description |
