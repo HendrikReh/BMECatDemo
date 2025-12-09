@@ -8,8 +8,8 @@ from src.search.mapping import INDEX_SETTINGS
 client = OpenSearch(
     hosts=[{"host": settings.opensearch_host, "port": settings.opensearch_port}],
     http_compress=True,
-    use_ssl=False,
-    verify_certs=False,
+    use_ssl=settings.opensearch_use_ssl,
+    verify_certs=settings.opensearch_verify_certs,
 )
 
 

@@ -5,7 +5,7 @@ Run with: pytest tests/integration -m integration
 """
 
 import pytest
-import time
+from opensearchpy import NotFoundError
 
 from src.config import settings
 from src.search.client import client, create_index, delete_index
@@ -213,5 +213,5 @@ class TestOpenSearchGetById:
 
     def test_get_nonexistent_document(self):
         """Test getting a non-existent document."""
-        with pytest.raises(Exception):
+        with pytest.raises(NotFoundError):
             client.get(index=TEST_INDEX, id="NONEXISTENT_ID")

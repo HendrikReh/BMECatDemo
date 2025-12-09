@@ -1,6 +1,7 @@
 """Search API endpoints."""
 
 from fastapi import APIRouter, HTTPException, Query
+from opensearchpy import NotFoundError
 
 from src.api.schemas import (
     AutocompleteResponse,
@@ -201,8 +202,8 @@ async def get_product(supplier_aid: str) -> ProductResult:
             price_currency=source.get("price_currency"),
             image=source.get("image"),
         )
-    except Exception:
-        raise HTTPException(status_code=404, detail="Product not found")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail="Product not found") from e
 
 
 @router.get("/facets", response_model=Facets)

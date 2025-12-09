@@ -1,4 +1,13 @@
-"""Application configuration via environment variables."""
+"""Application configuration via environment variables.
+
+Default values are intended for local development only.
+Production deployments should override via .env file or environment variables.
+
+Security considerations:
+- postgres_password: Override with a strong password in production
+- api_host: Consider restricting to specific IPs in production
+- opensearch_use_ssl: Enable SSL/TLS in production
+"""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +26,8 @@ class Settings(BaseSettings):
     opensearch_host: str = "localhost"
     opensearch_port: int = 9200
     opensearch_index: str = "products"
+    opensearch_use_ssl: bool = False
+    opensearch_verify_certs: bool = False
 
     # API
     api_host: str = "0.0.0.0"
