@@ -7,6 +7,7 @@ Security considerations:
 - postgres_password: Override with a strong password in production
 - api_host: Consider restricting to specific IPs in production
 - opensearch_use_ssl: Enable SSL/TLS in production
+- openai_api_key: Store securely, never commit to version control
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,6 +33,12 @@ class Settings(BaseSettings):
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 9019
+
+    # OpenAI Embeddings
+    openai_api_key: str | None = None
+    openai_embedding_model: str = "text-embedding-3-small"
+    openai_embedding_dimensions: int = 1536
+    embedding_batch_size: int = 100
 
     @property
     def postgres_url(self) -> str:
