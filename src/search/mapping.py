@@ -81,14 +81,15 @@ INDEX_SETTINGS = {
             # Media
             "image": {"type": "keyword"},
 
-            # Embedding for vector search
+            # Embedding for vector search (using Lucene engine, nmslib is deprecated)
+            # Lucene supports cosinesimil directly; OpenAI embeddings are pre-normalized
             "embedding": {
                 "type": "knn_vector",
                 "dimension": settings.openai_embedding_dimensions,
                 "method": {
                     "name": "hnsw",
                     "space_type": "cosinesimil",
-                    "engine": "nmslib",
+                    "engine": "lucene",
                     "parameters": {
                         "ef_construction": 128,
                         "m": 16,

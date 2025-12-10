@@ -670,7 +670,7 @@ The `eclass_system` field indicates the ECLASS version used (e.g., `ECLASS-8.0`)
         "method": {
           "name": "hnsw",
           "space_type": "cosinesimil",
-          "engine": "nmslib",
+          "engine": "lucene",
           "parameters": {
             "ef_construction": 128,
             "m": 16
@@ -690,6 +690,8 @@ The `eclass_system` field indicates the ECLASS version used (e.g., `ECLASS-8.0`)
   }
 }
 ```
+
+> **Note:** Uses Lucene engine instead of deprecated nmslib. Lucene supports `cosinesimil` directly and is recommended for future OpenSearch compatibility.
 
 ### Embedding Generation
 
