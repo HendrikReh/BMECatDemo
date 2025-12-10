@@ -7,6 +7,7 @@ Security considerations:
 - postgres_password: Override with a strong password in production
 - api_host: Consider restricting to specific IPs in production
 - opensearch_use_ssl: Enable SSL/TLS in production
+- openai_api_key: Store securely, never commit to version control
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

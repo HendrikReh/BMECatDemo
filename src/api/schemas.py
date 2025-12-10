@@ -1,6 +1,11 @@
 """Pydantic schemas for API requests and responses."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+# Type alias for search modes
+SearchMode = Literal["bm25", "vector", "hybrid"]
 
 
 class ProductResult(BaseModel):
@@ -90,7 +95,7 @@ class HybridSearchRequest(BaseModel):
     )
 
     # Search mode
-    mode: str = Field(
+    mode: SearchMode = Field(
         "hybrid",
         description="Search mode: 'bm25' (lexical only), 'vector' (semantic only), 'hybrid' (combined)",
     )
@@ -150,7 +155,7 @@ class BatchSearchRequest(BaseModel):
         max_length=10,
         description="List of queries (max 10)",
     )
-    mode: str = Field("hybrid", description="Search mode for all queries")
+    mode: SearchMode = Field("hybrid", description="Search mode for all queries")
     include_scores: bool = Field(True, description="Include relevance scores")
 
 

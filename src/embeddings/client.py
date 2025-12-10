@@ -7,9 +7,14 @@ from openai import OpenAI, RateLimitError
 
 from src.config import settings
 
+# Module-level cached client instance
+_client: OpenAI | None = None
+
 
 def get_client() -> OpenAI:
     """Get OpenAI client with configured API key.
+
+    Returns a cached client instance for efficiency.
 
     Returns:
         Configured OpenAI client instance.
@@ -17,12 +22,16 @@ def get_client() -> OpenAI:
     Raises:
         ValueError: If OPENAI_API_KEY is not set.
     """
+    global _client
+    if _client is not None:
+        return _client
     if not settings.openai_api_key:
         raise ValueError(
             "OPENAI_API_KEY environment variable is required for embedding generation. "
             "Set it in .env or as an environment variable."
         )
-    return OpenAI(api_key=settings.openai_api_key)
+    _client = OpenAI(api_key=settings.openai_api_key)
+    return _client
 
 
 def embed_single(text: str) -> list[float]:

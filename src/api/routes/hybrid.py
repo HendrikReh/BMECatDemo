@@ -122,25 +122,6 @@ def build_knn_query(embedding: list[float], k: int, filters: list[dict]) -> dict
     return {"knn": knn}
 
 
-def rrf_score(ranks: list[int | None], k: int = 60) -> float:
-    """Calculate Reciprocal Rank Fusion score.
-
-    RRF combines multiple ranked lists using the formula: sum(1 / (k + rank)).
-
-    Args:
-        ranks: List of ranks from different retrieval methods (None if not found).
-        k: Smoothing constant (higher = smoother ranking, default 60).
-
-    Returns:
-        Combined RRF score.
-    """
-    score = 0.0
-    for rank in ranks:
-        if rank is not None:
-            score += 1.0 / (k + rank)
-    return score
-
-
 def parse_hit_to_result(
     hit: dict,
     include_scores: bool,
@@ -256,27 +237,30 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         price_max=request.price_max,
     )
 
+    # Use local variable to avoid mutating request object
+    actual_mode = request.mode
+
     # Determine embedding
     embedding = request.embedding
-    if request.mode in ("vector", "hybrid") and embedding is None:
+    if actual_mode in ("vector", "hybrid") and embedding is None:
         # Generate embedding on server if not provided
         try:
             from src.embeddings.client import embed_single
             embedding = embed_single(request.q)
         except Exception as e:
-            if request.mode == "vector":
+            if actual_mode == "vector":
                 raise HTTPException(
                     status_code=400,
                     detail=f"Vector search requires embedding. Server embedding failed: {e}",
                 ) from e
             # Fall back to BM25 only for hybrid
-            request.mode = "bm25"
+            actual_mode = "bm25"
 
     results: list[ScoredProductResult] = []
     total = 0
     facets = None
 
-    if request.mode == "bm25":
+    if actual_mode == "bm25":
         # BM25 only
         body = {
             "query": build_bm25_query(request.q, filters),
@@ -302,7 +286,7 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         if request.include_facets:
             facets = parse_facets(response.get("aggregations", {}))
 
-    elif request.mode == "vector":
+    elif actual_mode == "vector":
         # Vector-only mode: semantic similarity search using k-NN
         # Fetches k=size*2 neighbors to ensure enough results after filtering
         body = {
@@ -424,7 +408,7 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         total=total,
         page=request.page,
         size=request.size,
-        mode=request.mode,
+        mode=actual_mode,
         results=results,
         facets=facets,
         took_ms=took_ms,

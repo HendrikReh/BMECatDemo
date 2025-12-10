@@ -1,7 +1,6 @@
 """Index products from PostgreSQL to OpenSearch with embeddings."""
 
 import sys
-from pathlib import Path
 
 from opensearchpy.helpers import bulk
 from sqlalchemy import select
