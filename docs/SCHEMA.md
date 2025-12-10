@@ -669,8 +669,8 @@ The `eclass_system` field indicates the ECLASS version used (e.g., `ECLASS-8.0`)
         "dimension": 1536,
         "method": {
           "name": "hnsw",
-          "space_type": "cosinesimil",
-          "engine": "lucene",
+          "space_type": "innerproduct",
+          "engine": "faiss",
           "parameters": {
             "ef_construction": 128,
             "m": 16
@@ -691,7 +691,7 @@ The `eclass_system` field indicates the ECLASS version used (e.g., `ECLASS-8.0`)
 }
 ```
 
-> **Note:** Uses Lucene engine instead of deprecated nmslib. Lucene supports `cosinesimil` directly and is recommended for future OpenSearch compatibility.
+> **Note:** Uses Faiss engine with `innerproduct` space type. OpenAI embeddings are pre-normalized, so `innerproduct` is equivalent to cosine similarity. Faiss supports dimensions >1024 (Lucene is limited to 1024).
 
 ### Embedding Generation
 

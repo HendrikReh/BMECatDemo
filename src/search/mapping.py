@@ -81,15 +81,16 @@ INDEX_SETTINGS = {
             # Media
             "image": {"type": "keyword"},
 
-            # Embedding for vector search (using Lucene engine, nmslib is deprecated)
-            # Lucene supports cosinesimil directly; OpenAI embeddings are pre-normalized
+            # Embedding for vector search (using Faiss engine)
+            # Faiss supports dimensions >1024; Lucene is limited to 1024.
+            # Using innerproduct with pre-normalized OpenAI embeddings = cosine similarity.
             "embedding": {
                 "type": "knn_vector",
                 "dimension": settings.openai_embedding_dimensions,
                 "method": {
                     "name": "hnsw",
-                    "space_type": "cosinesimil",
-                    "engine": "lucene",
+                    "space_type": "innerproduct",
+                    "engine": "faiss",
                     "parameters": {
                         "ef_construction": 128,
                         "m": 16,
