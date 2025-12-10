@@ -5,7 +5,14 @@ import re
 
 
 def clean_html(text: str) -> str:
-    """Clean HTML entities and normalize whitespace."""
+    """Clean HTML entities and normalize whitespace.
+
+    Args:
+        text: Raw text that may contain HTML entities or tags.
+
+    Returns:
+        Cleaned text with entities decoded and whitespace normalized.
+    """
     if not text:
         return ""
 
@@ -28,11 +35,21 @@ def prepare_embedding_text(
     eclass_id: str | None,
     max_length: int = 8000,
 ) -> str:
-    """
-    Combine product text fields for embedding generation.
+    """Combine product text fields for embedding generation.
 
+    Concatenates product fields into a single text optimized for semantic search.
     Optimized for OpenAI text-embedding-3-small which has 8191 token limit.
     German text averages ~1.3 tokens per word, so we limit to ~8000 chars.
+
+    Args:
+        description_short: Short product description.
+        description_long: Detailed product description.
+        manufacturer_name: Product manufacturer.
+        eclass_id: ECLASS classification ID.
+        max_length: Maximum output length in characters.
+
+    Returns:
+        Combined text suitable for embedding generation.
     """
     parts = []
 
@@ -62,7 +79,16 @@ def prepare_embedding_text(
 
 
 def prepare_embedding_text_from_dict(product: dict, max_length: int = 8000) -> str:
-    """Convenience wrapper for dict-based product data."""
+    """Convenience wrapper for dict-based product data.
+
+    Args:
+        product: Dictionary with product fields (description_short, description_long,
+            manufacturer_name, eclass_id).
+        max_length: Maximum output length in characters.
+
+    Returns:
+        Combined text suitable for embedding generation.
+    """
     return prepare_embedding_text(
         description_short=product.get("description_short"),
         description_long=product.get("description_long"),

@@ -30,7 +30,19 @@ def build_filters(
     price_min: float | None,
     price_max: float | None,
 ) -> list[dict]:
-    """Build OpenSearch filter clauses."""
+    """Build OpenSearch filter clauses from search parameters.
+
+    Args:
+        catalog_id: Filter by catalog namespace.
+        manufacturer: Filter by exact manufacturer name.
+        eclass_id: Filter by exact ECLASS ID.
+        eclass_prefix: Filter by ECLASS prefix (hierarchy).
+        price_min: Minimum price filter.
+        price_max: Maximum price filter.
+
+    Returns:
+        List of OpenSearch filter clause dictionaries.
+    """
     filters = []
 
     if catalog_id:
@@ -56,7 +68,15 @@ def build_filters(
 
 
 def build_bm25_query(q: str, filters: list[dict]) -> dict:
-    """Build BM25 full-text search query."""
+    """Build BM25 full-text search query.
+
+    Args:
+        q: Search query text.
+        filters: List of filter clauses to apply.
+
+    Returns:
+        OpenSearch bool query with multi_match and filters.
+    """
     must = [
         {
             "multi_match": {
@@ -78,7 +98,16 @@ def build_bm25_query(q: str, filters: list[dict]) -> dict:
 
 
 def build_knn_query(embedding: list[float], k: int, filters: list[dict]) -> dict:
-    """Build k-NN vector search query."""
+    """Build k-NN vector search query.
+
+    Args:
+        embedding: Query embedding vector (1536 dimensions).
+        k: Number of nearest neighbors to retrieve.
+        filters: List of filter clauses to apply.
+
+    Returns:
+        OpenSearch kNN query dictionary.
+    """
     knn = {
         "embedding": {
             "vector": embedding,
@@ -94,7 +123,17 @@ def build_knn_query(embedding: list[float], k: int, filters: list[dict]) -> dict
 
 
 def rrf_score(ranks: list[int | None], k: int = 60) -> float:
-    """Calculate Reciprocal Rank Fusion score."""
+    """Calculate Reciprocal Rank Fusion score.
+
+    RRF combines multiple ranked lists using the formula: sum(1 / (k + rank)).
+
+    Args:
+        ranks: List of ranks from different retrieval methods (None if not found).
+        k: Smoothing constant (higher = smoother ranking, default 60).
+
+    Returns:
+        Combined RRF score.
+    """
     score = 0.0
     for rank in ranks:
         if rank is not None:
@@ -110,7 +149,19 @@ def parse_hit_to_result(
     vector_score: float | None = None,
     combined_score: float | None = None,
 ) -> ScoredProductResult:
-    """Parse OpenSearch hit to ScoredProductResult."""
+    """Parse OpenSearch hit to ScoredProductResult.
+
+    Args:
+        hit: OpenSearch hit dictionary with _source field.
+        include_scores: Whether to include relevance scores in result.
+        include_embedding_text: Whether to include embedding source text.
+        bm25_score: BM25 score from lexical search.
+        vector_score: Cosine similarity score from vector search.
+        combined_score: RRF combined score.
+
+    Returns:
+        ScoredProductResult with product data and optional scores.
+    """
     source = hit["_source"]
 
     result = ScoredProductResult(
@@ -140,7 +191,11 @@ def parse_hit_to_result(
 
 
 def build_facet_aggs() -> dict:
-    """Build facet aggregations."""
+    """Build facet aggregations for search results.
+
+    Returns:
+        OpenSearch aggregations for manufacturers, eclass_ids, and catalogs.
+    """
     return {
         "manufacturers": {"terms": {"field": "manufacturer_name.keyword", "size": 50}},
         "eclass_ids": {"terms": {"field": "eclass_id", "size": 50}},
@@ -149,7 +204,14 @@ def build_facet_aggs() -> dict:
 
 
 def parse_facets(aggs: dict) -> Facets:
-    """Parse aggregation results to Facets."""
+    """Parse aggregation results to Facets.
+
+    Args:
+        aggs: OpenSearch aggregations response dictionary.
+
+    Returns:
+        Facets object with manufacturers, eclass_ids, and catalogs.
+    """
     return Facets(
         manufacturers=[
             FacetBucket(value=b["key"], count=b["doc_count"])

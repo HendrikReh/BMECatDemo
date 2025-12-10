@@ -9,7 +9,14 @@ from src.config import settings
 
 
 def get_client() -> OpenAI:
-    """Get OpenAI client with configured API key."""
+    """Get OpenAI client with configured API key.
+
+    Returns:
+        Configured OpenAI client instance.
+
+    Raises:
+        ValueError: If OPENAI_API_KEY is not set.
+    """
     if not settings.openai_api_key:
         raise ValueError(
             "OPENAI_API_KEY environment variable is required for embedding generation. "
@@ -19,7 +26,14 @@ def get_client() -> OpenAI:
 
 
 def embed_single(text: str) -> list[float]:
-    """Generate embedding for a single text."""
+    """Generate embedding for a single text.
+
+    Args:
+        text: Text to embed.
+
+    Returns:
+        Embedding vector (1536 dimensions by default).
+    """
     client = get_client()
     response = client.embeddings.create(
         input=text,
@@ -30,10 +44,19 @@ def embed_single(text: str) -> list[float]:
 
 
 def embed_batch(texts: list[str], max_retries: int = 3) -> list[list[float]]:
-    """
-    Generate embeddings for a batch of texts with retry logic.
+    """Generate embeddings for a batch of texts with retry logic.
 
     Handles rate limiting with exponential backoff.
+
+    Args:
+        texts: List of texts to embed.
+        max_retries: Maximum retry attempts on rate limit errors.
+
+    Returns:
+        List of embedding vectors in the same order as input texts.
+
+    Raises:
+        RateLimitError: If rate limit is exceeded after all retries.
     """
     if not texts:
         return []
@@ -64,16 +87,17 @@ def embed_texts(
     batch_size: int | None = None,
     show_progress: bool = False,
 ) -> list[list[float]]:
-    """
-    Generate embeddings for a list of texts in batches.
+    """Generate embeddings for a list of texts in batches.
+
+    Splits large text lists into batches and processes them sequentially.
 
     Args:
-        texts: List of texts to embed
-        batch_size: Number of texts per API call (default from settings)
-        show_progress: Print progress to stderr
+        texts: List of texts to embed.
+        batch_size: Number of texts per API call. Defaults to settings.embedding_batch_size.
+        show_progress: If True, print progress to stderr.
 
     Returns:
-        List of embedding vectors (same order as input texts)
+        List of embedding vectors in the same order as input texts.
     """
     if batch_size is None:
         batch_size = settings.embedding_batch_size
@@ -97,13 +121,17 @@ def embed_texts_iter(
     texts: Iterator[str],
     batch_size: int | None = None,
 ) -> Iterator[list[float]]:
-    """
-    Generate embeddings lazily from an iterator.
+    """Generate embeddings lazily from an iterator.
 
     Useful for streaming large datasets without loading all texts into memory.
+    Processes texts in batches internally while yielding one embedding at a time.
+
+    Args:
+        texts: Iterator of texts to embed.
+        batch_size: Number of texts per API call. Defaults to settings.embedding_batch_size.
 
     Yields:
-        Embedding vectors one at a time
+        Embedding vectors one at a time, in the same order as input texts.
     """
     if batch_size is None:
         batch_size = settings.embedding_batch_size
