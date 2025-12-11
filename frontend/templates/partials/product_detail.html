@@ -13,7 +13,8 @@
         {% if product.image %}
         <div class="mb-6">
             <img src="{{ product.image }}" alt="{{ product.description_short }}"
-                 class="w-full h-48 object-contain bg-gray-50 rounded-lg">
+                 class="w-full h-48 object-contain bg-gray-50 rounded-lg"
+                 onerror="this.parentElement.style.display='none';">
         </div>
         {% endif %}
 

@@ -17,7 +17,7 @@ class FrontendSettings(BaseSettings):
 
     # Frontend server
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = 9018
 
     # Display settings
     default_page_size: int = 25

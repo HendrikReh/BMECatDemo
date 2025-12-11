@@ -104,6 +104,11 @@ async def search(
     if size is None:
         size = settings.default_page_size
 
+    # Convert empty strings to None (HTMX sends empty strings for empty inputs)
+    q = q if q else None
+    manufacturer = manufacturer if manufacturer else None
+    eclass_id = eclass_id if eclass_id else None
+
     try:
         results = await api.search(
             q=q,
