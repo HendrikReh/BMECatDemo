@@ -48,6 +48,7 @@
                             name="eclass_segment"
                             value="{{ facet.value }}"
                             {% if facet.value in (eclass_segments or []) %}checked{% endif %}
+                            autocomplete="off"
                             hx-get="/search"
                             hx-trigger="change"
                             hx-target="#results-container"
@@ -87,6 +88,7 @@
                             name="price_band"
                             value="{{ band.key }}"
                             {% if price_band == band.key %}checked{% endif %}
+                            autocomplete="off"
                             hx-get="/search"
                             hx-trigger="change"
                             hx-target="#results-container"
@@ -103,6 +105,7 @@
                             name="price_band"
                             value=""
                             {% if not price_band %}checked{% endif %}
+                            autocomplete="off"
                             hx-get="/search"
                             hx-trigger="change"
                             hx-target="#results-container"
