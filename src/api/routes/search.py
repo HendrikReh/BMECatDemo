@@ -20,10 +20,10 @@ router = APIRouter(prefix="/api/v1", tags=["search"])
 
 def build_search_query(
     q: str | None,
-    manufacturer: str | None,
-    eclass_id: str | None,
-    eclass_segment: str | None,
-    order_unit: str | None,
+    manufacturers: list[str] | None,
+    eclass_ids: list[str] | None,
+    eclass_segments: list[str] | None,
+    order_units: list[str] | None,
     price_min: float | None,
     price_max: float | None,
 ) -> dict:
@@ -50,21 +50,41 @@ def build_search_query(
             }
         )
 
-    # Manufacturer filter
-    if manufacturer:
-        filter_clauses.append({"term": {"manufacturer_name.keyword": manufacturer}})
+    # Manufacturer filter (supports multiple with OR)
+    if manufacturers:
+        if len(manufacturers) == 1:
+            filter_clauses.append(
+                {"term": {"manufacturer_name.keyword": manufacturers[0]}}
+            )
+        else:
+            filter_clauses.append(
+                {"terms": {"manufacturer_name.keyword": manufacturers}}
+            )
 
-    # ECLASS filter (exact match)
-    if eclass_id:
-        filter_clauses.append({"term": {"eclass_id": eclass_id}})
+    # ECLASS filter (supports multiple with OR)
+    if eclass_ids:
+        if len(eclass_ids) == 1:
+            filter_clauses.append({"term": {"eclass_id": eclass_ids[0]}})
+        else:
+            filter_clauses.append({"terms": {"eclass_id": eclass_ids}})
 
-    # ECLASS segment filter (prefix match on first 2 digits)
-    if eclass_segment:
-        filter_clauses.append({"prefix": {"eclass_id": eclass_segment}})
+    # ECLASS segment filter (prefix match on first 2 digits) - supports multiple
+    if eclass_segments:
+        if len(eclass_segments) == 1:
+            filter_clauses.append({"prefix": {"eclass_id": eclass_segments[0]}})
+        else:
+            # OR query for multiple segments
+            segment_should = [
+                {"prefix": {"eclass_id": seg}} for seg in eclass_segments
+            ]
+            filter_clauses.append({"bool": {"should": segment_should}})
 
-    # Order unit filter
-    if order_unit:
-        filter_clauses.append({"term": {"order_unit": order_unit}})
+    # Order unit filter (supports multiple with OR)
+    if order_units:
+        if len(order_units) == 1:
+            filter_clauses.append({"term": {"order_unit": order_units[0]}})
+        else:
+            filter_clauses.append({"terms": {"order_unit": order_units}})
 
     # Price range filter
     if price_min is not None or price_max is not None:
@@ -159,22 +179,24 @@ async def search_products(
         ),
         examples=["Kabel"],
     ),
-    manufacturer: str | None = Query(
+    manufacturer: list[str] | None = Query(
         None,
-        description="Filter by exact manufacturer name",
+        description="Filter by manufacturer name(s). Can specify multiple.",
         examples=["Walraven GmbH"],
     ),
-    eclass_id: str | None = Query(
-        None, description="Filter by ECLASS classification ID", examples=["23140307"]
-    ),
-    eclass_segment: str | None = Query(
+    eclass_id: list[str] | None = Query(
         None,
-        description="Filter by ECLASS segment (first 2 digits)",
+        description="Filter by ECLASS classification ID(s). Can specify multiple.",
+        examples=["23140307"],
+    ),
+    eclass_segment: list[str] | None = Query(
+        None,
+        description="Filter by ECLASS segment(s) (2-digit prefix). Multiple allowed.",
         examples=["27"],
     ),
-    order_unit: str | None = Query(
+    order_unit: list[str] | None = Query(
         None,
-        description="Filter by order unit (C62=piece, MTR=meter, etc.)",
+        description="Filter by order unit(s) (C62=piece, MTR=meter, etc.). Multiple.",
         examples=["C62"],
     ),
     price_min: float | None = Query(
@@ -214,8 +236,14 @@ async def search_products(
                     price_max = band["to"]
                 break
 
+    # Filter out empty strings from list parameters
+    eclass_segments = [s for s in (eclass_segment or []) if s] or None
+    manufacturers = [m for m in (manufacturer or []) if m] or None
+    eclass_ids = [e for e in (eclass_id or []) if e] or None
+    order_units = [u for u in (order_unit or []) if u] or None
+
     query = build_search_query(
-        q, manufacturer, eclass_id, eclass_segment, order_unit, price_min, price_max
+        q, manufacturers, eclass_ids, eclass_segments, order_units, price_min, price_max
     )
 
     body = {
@@ -225,17 +253,17 @@ async def search_products(
         "track_total_hits": True,
         "aggs": {
             "manufacturers": {
-                "terms": {"field": "manufacturer_name.keyword", "size": 50}
+                "terms": {"field": "manufacturer_name.keyword", "size": 1500}
             },
-            "eclass_ids": {"terms": {"field": "eclass_id", "size": 50}},
+            "eclass_ids": {"terms": {"field": "eclass_id", "size": 1500}},
             "eclass_segments": {
                 "terms": {
                     "field": "eclass_id",
-                    "size": 100,
+                    "size": 50,
                     "script": "_value.substring(0, 2)",
                 }
             },
-            "order_units": {"terms": {"field": "order_unit", "size": 20}},
+            "order_units": {"terms": {"field": "order_unit", "size": 50}},
             "price_bands": build_price_band_aggs(),
         },
     }
@@ -414,17 +442,17 @@ async def get_facets() -> Facets:
         "size": 0,
         "aggs": {
             "manufacturers": {
-                "terms": {"field": "manufacturer_name.keyword", "size": 100}
+                "terms": {"field": "manufacturer_name.keyword", "size": 1500}
             },
-            "eclass_ids": {"terms": {"field": "eclass_id", "size": 100}},
+            "eclass_ids": {"terms": {"field": "eclass_id", "size": 1500}},
             "eclass_segments": {
                 "terms": {
                     "field": "eclass_id",
-                    "size": 100,
+                    "size": 50,
                     "script": "_value.substring(0, 2)",
                 }
             },
-            "order_units": {"terms": {"field": "order_unit", "size": 20}},
+            "order_units": {"terms": {"field": "order_unit", "size": 50}},
             "price_bands": build_price_band_aggs(),
         },
     }

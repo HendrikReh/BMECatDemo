@@ -13,10 +13,10 @@ class TestBuildSearchQuery:
         """Test query with no parameters returns match_all."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=None,
             price_max=None,
         )
@@ -26,10 +26,10 @@ class TestBuildSearchQuery:
         """Test full-text search query."""
         query = build_search_query(
             q="Kabel",
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=None,
             price_max=None,
         )
@@ -38,14 +38,14 @@ class TestBuildSearchQuery:
         assert "multi_match" in query["bool"]["must"][0]
         assert query["bool"]["must"][0]["multi_match"]["query"] == "Kabel"
 
-    def test_manufacturer_filter(self):
-        """Test manufacturer filter."""
+    def test_manufacturer_filter_single(self):
+        """Test single manufacturer filter."""
         query = build_search_query(
             q=None,
-            manufacturer="Walraven GmbH",
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=["Walraven GmbH"],
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=None,
             price_max=None,
         )
@@ -54,56 +54,142 @@ class TestBuildSearchQuery:
         assert len(filters) == 1
         assert filters[0] == {"term": {"manufacturer_name.keyword": "Walraven GmbH"}}
 
-    def test_eclass_filter(self):
-        """Test ECLASS ID filter."""
+    def test_manufacturer_filter_multiple(self):
+        """Test multiple manufacturers filter (OR query)."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id="23140307",
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=["Walraven GmbH", "Schneider Electric GmbH", "Siemens AG"],
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
+            price_min=None,
+            price_max=None,
+        )
+        assert "bool" in query
+        filters = query["bool"]["filter"]
+        assert len(filters) == 1
+        assert filters[0] == {
+            "terms": {
+                "manufacturer_name.keyword": [
+                    "Walraven GmbH",
+                    "Schneider Electric GmbH",
+                    "Siemens AG",
+                ]
+            }
+        }
+
+    def test_eclass_filter_single(self):
+        """Test single ECLASS ID filter."""
+        query = build_search_query(
+            q=None,
+            manufacturers=None,
+            eclass_ids=["23140307"],
+            eclass_segments=None,
+            order_units=None,
             price_min=None,
             price_max=None,
         )
         filters = query["bool"]["filter"]
         assert {"term": {"eclass_id": "23140307"}} in filters
 
-    def test_eclass_segment_filter(self):
-        """Test ECLASS segment (2-digit prefix) filter."""
+    def test_eclass_filter_multiple(self):
+        """Test multiple ECLASS IDs filter (OR query)."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment="27",
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=["23140307", "27140501", "21030102"],
+            eclass_segments=None,
+            order_units=None,
+            price_min=None,
+            price_max=None,
+        )
+        assert "bool" in query
+        filters = query["bool"]["filter"]
+        assert len(filters) == 1
+        assert filters[0] == {
+            "terms": {
+                "eclass_id": ["23140307", "27140501", "21030102"]
+            }
+        }
+
+    def test_eclass_segment_filter_single(self):
+        """Test ECLASS segment (2-digit prefix) filter with single segment."""
+        query = build_search_query(
+            q=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=["27"],
+            order_units=None,
             price_min=None,
             price_max=None,
         )
         filters = query["bool"]["filter"]
         assert {"prefix": {"eclass_id": "27"}} in filters
 
-    def test_order_unit_filter(self):
-        """Test order unit filter."""
+    def test_eclass_segment_filter_multiple(self):
+        """Test ECLASS segment filter with multiple segments (OR query)."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit="MTR",
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=["27", "23", "21"],
+            order_units=None,
+            price_min=None,
+            price_max=None,
+        )
+        filters = query["bool"]["filter"]
+        assert len(filters) == 1
+        # Should be a bool query with should clauses
+        assert "bool" in filters[0]
+        assert "should" in filters[0]["bool"]
+        should_clauses = filters[0]["bool"]["should"]
+        assert len(should_clauses) == 3
+        assert {"prefix": {"eclass_id": "27"}} in should_clauses
+        assert {"prefix": {"eclass_id": "23"}} in should_clauses
+        assert {"prefix": {"eclass_id": "21"}} in should_clauses
+
+    def test_order_unit_filter_single(self):
+        """Test single order unit filter."""
+        query = build_search_query(
+            q=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=["MTR"],
             price_min=None,
             price_max=None,
         )
         filters = query["bool"]["filter"]
         assert {"term": {"order_unit": "MTR"}} in filters
 
+    def test_order_unit_filter_multiple(self):
+        """Test multiple order units filter (OR query)."""
+        query = build_search_query(
+            q=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=["MTR", "C62", "PK"],
+            price_min=None,
+            price_max=None,
+        )
+        assert "bool" in query
+        filters = query["bool"]["filter"]
+        assert len(filters) == 1
+        assert filters[0] == {
+            "terms": {
+                "order_unit": ["MTR", "C62", "PK"]
+            }
+        }
+
     def test_price_range_filter(self):
         """Test price range filter."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=100.0,
             price_max=500.0,
         )
@@ -117,10 +203,10 @@ class TestBuildSearchQuery:
         """Test price filter with only minimum."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=50.0,
             price_max=None,
         )
@@ -131,10 +217,10 @@ class TestBuildSearchQuery:
         """Test price filter with only maximum."""
         query = build_search_query(
             q=None,
-            manufacturer=None,
-            eclass_id=None,
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
             price_min=None,
             price_max=1000.0,
         )
@@ -145,10 +231,10 @@ class TestBuildSearchQuery:
         """Test combining text search with multiple filters."""
         query = build_search_query(
             q="Trägerklammer",
-            manufacturer="Walraven GmbH",
-            eclass_id="23140307",
-            eclass_segment=None,
-            order_unit=None,
+            manufacturers=["Walraven GmbH"],
+            eclass_ids=["23140307"],
+            eclass_segments=None,
+            order_units=None,
             price_min=100.0,
             price_max=500.0,
         )

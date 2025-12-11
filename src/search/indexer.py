@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from src.config import settings
 from src.db.database import sync_engine
 from src.db.models import Product
+from src.eclass.names import get_eclass_name
 from src.search.client import client, create_index
 
 BATCH_SIZE = 1000
@@ -36,6 +37,7 @@ def product_to_doc(
         "price_quantity": product.price_quantity,
         "quantity_min": product.quantity_min,
         "eclass_id": product.eclass_id,
+        "eclass_name": get_eclass_name(product.eclass_id),
         "eclass_system": product.eclass_system,
     }
 
@@ -90,6 +92,7 @@ def index_all(
     if generate_embeddings:
         from src.embeddings.client import embed_batch
         from src.embeddings.text_prep import prepare_embedding_text
+
         print("Embedding generation enabled.", file=sys.stderr)
     else:
         embed_batch = None
@@ -103,6 +106,7 @@ def index_all(
             stmt = (
                 select(Product)
                 .options(selectinload(Product.prices), selectinload(Product.media))
+                .order_by(Product.id)
                 .offset(offset)
                 .limit(BATCH_SIZE)
             )
@@ -133,7 +137,9 @@ def index_all(
                     embeddings = embed_batch(texts)
                     print(f"  Generated {len(embeddings)} embeddings", file=sys.stderr)
                 except Exception as e:
-                    print(f"  Warning: Embedding generation failed: {e}", file=sys.stderr)
+                    print(
+                        f"  Warning: Embedding generation failed: {e}", file=sys.stderr
+                    )
                     embeddings = [None] * len(products)
 
             # Convert to documents
@@ -143,13 +149,20 @@ def index_all(
                     catalog_id=catalog_id,
                     source_file=source_file,
                     embedding=embeddings[i] if i < len(embeddings) else None,
-                    embedding_text=embedding_texts[i] if i < len(embedding_texts) else None,
+                    embedding_text=(
+                        embedding_texts[i] if i < len(embedding_texts) else None
+                    ),
                 )
                 for i, p in enumerate(products)
             ]
 
-            success, _ = bulk(client, docs, raise_on_error=False)
+            success, errors = bulk(client, docs, raise_on_error=False)
             count += success
+            if errors:
+                print(f"  Errors in batch: {len(errors)}", file=sys.stderr)
+                # Print first error for debugging
+                if errors:
+                    print(f"  First error: {errors[0]}", file=sys.stderr)
             offset += BATCH_SIZE
 
             print(f"Indexed {count:,} documents...", file=sys.stderr)

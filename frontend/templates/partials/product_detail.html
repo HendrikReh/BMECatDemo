@@ -36,12 +36,13 @@
                 <dd class="mt-1 text-sm text-gray-900 font-mono">{{ product.manufacturer_aid or '-' }}</dd>
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500">ECLASS ID</dt>
-                <dd class="mt-1">
+                <dt class="text-sm font-medium text-gray-500">ECLASS</dt>
+                <dd class="mt-1 text-sm text-gray-900">
                     {% if product.eclass_id %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
-                        {{ product.eclass_id }}
-                    </span>
+                    <div class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 gap-1">
+                        <span>{{ product.eclass_name or ('Segment ' ~ product.eclass_id[:2]) }}</span>
+                        <span class="text-xs text-blue-700">({{ product.eclass_id }})</span>
+                    </div>
                     {% else %}
                     <span class="text-sm text-gray-400">-</span>
                     {% endif %}

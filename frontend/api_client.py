@@ -26,10 +26,10 @@ class APIClient:
     async def search(
         self,
         q: str | None = None,
-        manufacturer: str | None = None,
-        eclass_id: str | None = None,
-        eclass_segment: str | None = None,
-        order_unit: str | None = None,
+        manufacturers: list[str] | None = None,
+        eclass_ids: list[str] | None = None,
+        eclass_segments: list[str] | None = None,
+        order_units: list[str] | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
         price_band: str | None = None,
@@ -40,10 +40,10 @@ class APIClient:
 
         Args:
             q: Search query text
-            manufacturer: Filter by manufacturer name
-            eclass_id: Filter by ECLASS ID
-            eclass_segment: Filter by ECLASS segment (first 2 digits)
-            order_unit: Filter by order unit (C62, MTR, etc.)
+            manufacturers: Filter by manufacturer names (multiple allowed)
+            eclass_ids: Filter by ECLASS IDs (multiple allowed)
+            eclass_segments: Filter by ECLASS segments (2-digit prefix), multiple
+            order_units: Filter by order units (C62, MTR, etc.), multiple allowed
             price_min: Minimum price filter
             price_max: Maximum price filter
             price_band: Filter by price band (0-10, 10-50, etc.)
@@ -53,23 +53,27 @@ class APIClient:
         Returns:
             Search response with results, total count, and facets
         """
-        params: dict = {"page": page, "size": size}
+        params: list[tuple[str, str | int | float]] = [("page", page), ("size", size)]
         if q:
-            params["q"] = q
-        if manufacturer:
-            params["manufacturer"] = manufacturer
-        if eclass_id:
-            params["eclass_id"] = eclass_id
-        if eclass_segment:
-            params["eclass_segment"] = eclass_segment
-        if order_unit:
-            params["order_unit"] = order_unit
+            params.append(("q", q))
+        if manufacturers:
+            for mfr in manufacturers:
+                params.append(("manufacturer", mfr))
+        if eclass_ids:
+            for eid in eclass_ids:
+                params.append(("eclass_id", eid))
+        if eclass_segments:
+            for segment in eclass_segments:
+                params.append(("eclass_segment", segment))
+        if order_units:
+            for unit in order_units:
+                params.append(("order_unit", unit))
         if price_min is not None:
-            params["price_min"] = price_min
+            params.append(("price_min", price_min))
         if price_max is not None:
-            params["price_max"] = price_max
+            params.append(("price_max", price_max))
         if price_band:
-            params["price_band"] = price_band
+            params.append(("price_band", price_band))
         return await self._get("/api/v1/search", params)
 
     async def autocomplete(self, q: str) -> list[str]:

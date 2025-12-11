@@ -93,10 +93,10 @@ async def index(request: Request):
 async def search(
     request: Request,
     q: str | None = Query(None),
-    manufacturer: str | None = Query(None),
-    eclass_id: str | None = Query(None),
-    eclass_segment: str | None = Query(None),
-    order_unit: str | None = Query(None),
+    manufacturer: list[str] | None = Query(None),
+    eclass_id: list[str] | None = Query(None),
+    eclass_segment: list[str] | None = Query(None),
+    order_unit: list[str] | None = Query(None),
     price_min: float | None = Query(None),
     price_max: float | None = Query(None),
     price_band: str | None = Query(None),
@@ -109,19 +109,21 @@ async def search(
 
     # Convert empty strings to None (HTMX sends empty strings for empty inputs)
     q = q if q else None
-    manufacturer = manufacturer if manufacturer else None
-    eclass_id = eclass_id if eclass_id else None
-    eclass_segment = eclass_segment if eclass_segment else None
-    order_unit = order_unit if order_unit else None
     price_band = price_band if price_band else None
+
+    # Filter out empty strings from list parameters
+    eclass_segments = [s for s in (eclass_segment or []) if s] or None
+    manufacturers = [m for m in (manufacturer or []) if m] or None
+    eclass_ids = [e for e in (eclass_id or []) if e] or None
+    order_units = [u for u in (order_unit or []) if u] or None
 
     try:
         results = await api.search(
             q=q,
-            manufacturer=manufacturer,
-            eclass_id=eclass_id,
-            eclass_segment=eclass_segment,
-            order_unit=order_unit,
+            manufacturers=manufacturers,
+            eclass_ids=eclass_ids,
+            eclass_segments=eclass_segments,
+            order_units=order_units,
             price_min=price_min,
             price_max=price_max,
             price_band=price_band,
@@ -149,10 +151,10 @@ async def search(
             "total_pages": total_pages,
             "page_range": page_range,
             "query": q,
-            "manufacturer": manufacturer,
-            "eclass_id": eclass_id,
-            "eclass_segment": eclass_segment,
-            "order_unit": order_unit,
+            "manufacturers": manufacturers,
+            "eclass_ids": eclass_ids,
+            "eclass_segments": eclass_segments,
+            "order_units": order_units,
             "price_min": price_min,
             "price_max": price_max,
             "price_band": price_band,

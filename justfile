@@ -62,11 +62,11 @@ serve-prod:
 
 # Start frontend server
 serve-frontend:
-    uv run uvicorn frontend.app:app --reload --port 8080
+    uv run uvicorn frontend.app:app --reload --port 9018
 
 # Start frontend server (production mode)
 serve-frontend-prod:
-    uv run uvicorn frontend.app:app --host 0.0.0.0 --port 8080
+    uv run uvicorn frontend.app:app --host 0.0.0.0 --port 9018
 
 # Run unit tests
 test-unit:
@@ -79,6 +79,14 @@ test-integration:
 # Run smoke tests (requires running API server)
 test-smoke:
     uv run pytest tests/smoke -v -m smoke
+
+# Lint with Ruff
+lint:
+    uv run ruff check .
+
+# Format with Black
+format:
+    uv run black .
 
 # Run all tests
 test:
