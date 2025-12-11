@@ -408,6 +408,9 @@ function escapeHtml(text) {
 
 // Trigger search with all current filter values
 function triggerSearch() {
+    // Clear selections when search/filter changes since results will be different
+    selectedProducts.clear();
+
     htmx.ajax('GET', '/search', {
         target: '#results-container',
         source: document.body,
@@ -417,6 +420,9 @@ function triggerSearch() {
 
 // Change page size and trigger search
 function changePageSize(size) {
+    // Clear selections when page size changes
+    selectedProducts.clear();
+
     const params = buildSearchParams();
     params.size = size;
     params.page = 1; // Reset to first page when changing page size
@@ -662,6 +668,26 @@ function restoreSelectionState() {
         }
     }
 }
+
+// Track last search params to detect filter/search changes
+let lastSearchParams = '';
+
+// Listen for HTMX requests to detect search/filter changes
+document.body.addEventListener('htmx:beforeRequest', function(event) {
+    if (event.detail.target?.id === 'results-container') {
+        const requestPath = event.detail.pathInfo?.requestPath || '';
+        // Extract search params (everything except page parameter)
+        const url = new URL(requestPath, window.location.origin);
+        url.searchParams.delete('page'); // Ignore page changes
+        const currentParams = url.searchParams.toString();
+
+        // If search/filter params changed (not just pagination), clear selections
+        if (currentParams !== lastSearchParams) {
+            selectedProducts.clear();
+            lastSearchParams = currentParams;
+        }
+    }
+});
 
 // Listen for HTMX swaps to restore selection state
 document.body.addEventListener('htmx:afterSwap', function(event) {
