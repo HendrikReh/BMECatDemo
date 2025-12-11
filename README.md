@@ -1,6 +1,6 @@
 # BMECatDemo
 
-Convert BMECat XML product catalogs to JSON Lines, store in PostgreSQL, and search via OpenSearch with a FastAPI REST API.
+Convert BMECat XML product catalogs to JSON Lines, store in PostgreSQL, and search via OpenSearch with a FastAPI REST API. Includes a web-based admin interface for product catalog exploration.
 
 ## Prerequisites
 
@@ -28,6 +28,9 @@ just index
 
 # Start API server
 just serve
+
+# Start web frontend (in another terminal)
+just serve-frontend
 ```
 
 Or use the pipeline command for a single step:
@@ -36,9 +39,11 @@ Or use the pipeline command for a single step:
 just up
 just pipeline data/BME-cat_eClass_8.xml
 just serve
+just serve-frontend
 ```
 
-API docs available at <http://localhost:9019/docs>
+- API docs: <http://localhost:9019/docs>
+- Web frontend: <http://localhost:8080>
 
 ## API Endpoints
 
@@ -52,9 +57,13 @@ API docs available at <http://localhost:9019/docs>
 ### Search Parameters
 
 - `q` - Search query (searches descriptions, manufacturer, IDs)
-- `manufacturer` - Filter by manufacturer name
-- `eclass_id` - Filter by ECLASS classification
+- `manufacturer` - Filter by manufacturer name (multiple allowed)
+- `eclass_id` - Filter by ECLASS classification (multiple allowed)
+- `eclass_segment` - Filter by ECLASS segment/2-digit prefix (multiple allowed)
+- `order_unit` - Filter by order unit (multiple allowed)
 - `price_min` / `price_max` - Price range filter
+- `price_band` - Predefined price ranges (0-10, 10-50, 50-200, 200-1000, 1000+)
+- `exact_match` - Use exact matching for EAN/ID searches (default: false)
 - `page` / `size` - Pagination
 
 ### Example
@@ -62,6 +71,26 @@ API docs available at <http://localhost:9019/docs>
 ```bash
 curl "http://localhost:9019/api/v1/search?q=Kabel&manufacturer=Walraven%20GmbH&size=10"
 ```
+
+## Web Frontend
+
+The web frontend provides a user-friendly interface for exploring the product catalog:
+
+- **Full-text search** with autocomplete suggestions
+- **Faceted filtering** by category, price range, unit, manufacturer, and ECLASS ID
+- **Collapsible filter panels** for a clean interface
+- **Exact match toggle** for precise EAN/ID searches
+- **Product selection** with multi-select across pages
+- **Export** selected products to CSV or JSON with metadata
+- **Responsive design** with Tailwind CSS
+
+Start the frontend with:
+
+```bash
+just serve-frontend
+```
+
+Then open <http://localhost:8080> in your browser.
 
 ## Project Structure
 
@@ -83,7 +112,23 @@ curl "http://localhost:9019/api/v1/search?q=Kabel&manufacturer=Walraven%20GmbH&s
 │       ├── app.py          # FastAPI app
 │       ├── schemas.py      # Pydantic models
 │       └── routes/
-│           └── search.py   # Search endpoints
+│           ├── search.py   # Search endpoints
+│           └── hybrid.py   # Hybrid search (BM25 + vector)
+├── frontend/
+│   ├── app.py              # Frontend FastAPI app
+│   ├── config.py           # Frontend settings
+│   ├── api_client.py       # Backend API client
+│   ├── templates/          # Jinja2 templates
+│   │   ├── base.html
+│   │   ├── index.html
+│   │   └── partials/       # HTMX partial templates
+│   └── static/
+│       ├── css/
+│       └── js/main.js      # Frontend JavaScript
+└── tests/
+    ├── unit/               # Unit tests
+    ├── integration/        # Integration tests
+    └── smoke/              # Smoke tests
 ```
 
 ## Configuration
@@ -112,10 +157,12 @@ Environment variables (or `.env` file):
 | `just convert <in> <out>` | Convert XML to JSONL |
 | `just import <file>` | Import JSONL to PostgreSQL |
 | `just index` | Index to OpenSearch |
-| `just lint` | Run Ruff lint checks |
-| `just format` | Format code with Black |
-| `just serve` | Start API server |
+| `just pipeline <xml>` | Convert, import, and index |
+| `just serve` | Start API server (port 9019) |
+| `just serve-frontend` | Start web frontend (port 8080) |
+| `just test` | Run all tests |
 | `just test-unit` | Run unit tests |
 | `just test-integration` | Run integration tests |
 | `just test-smoke` | Run smoke tests |
-| `just pipeline <xml>` | Convert, import, and index |
+| `just lint` | Run Ruff lint checks |
+| `just format` | Format code with Black |
