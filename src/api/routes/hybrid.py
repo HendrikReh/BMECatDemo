@@ -1,22 +1,23 @@
 """Hybrid search endpoints optimized for RAG retrieval."""
 
 import time
+
 from fastapi import APIRouter, HTTPException
 
 from src.api.schemas import (
-    BatchSearchQuery,
     BatchSearchRequest,
     BatchSearchResponse,
     BatchSearchResult,
     CatalogInfo,
     CatalogListResponse,
-    Facets,
     FacetBucket,
+    Facets,
     HybridSearchRequest,
     HybridSearchResponse,
     ScoredProductResult,
 )
 from src.config import settings
+from src.eclass.names import get_eclass_name
 from src.search.client import client
 
 router = APIRouter(prefix="/api/v1", tags=["hybrid"])
@@ -153,6 +154,7 @@ def parse_hit_to_result(
         description_short=source.get("description_short"),
         description_long=source.get("description_long"),
         eclass_id=source.get("eclass_id"),
+        eclass_name=get_eclass_name(source.get("eclass_id")),
         price_amount=source.get("price_amount"),
         price_currency=source.get("price_currency"),
         image=source.get("image"),
@@ -199,7 +201,11 @@ def parse_facets(aggs: dict) -> Facets:
             for b in aggs.get("manufacturers", {}).get("buckets", [])
         ],
         eclass_ids=[
-            FacetBucket(value=b["key"], count=b["doc_count"])
+            FacetBucket(
+                value=b["key"],
+                name=get_eclass_name(b["key"]),
+                count=b["doc_count"],
+            )
             for b in aggs.get("eclass_ids", {}).get("buckets", [])
         ],
         catalogs=[
@@ -209,7 +215,9 @@ def parse_facets(aggs: dict) -> Facets:
     )
 
 
-@router.post("/search/hybrid", response_model=HybridSearchResponse, summary="Hybrid search")
+@router.post(
+    "/search/hybrid", response_model=HybridSearchResponse, summary="Hybrid search"
+)
 async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
     """
     Perform hybrid search combining BM25 lexical and vector semantic search.
@@ -246,12 +254,16 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         # Generate embedding on server if not provided
         try:
             from src.embeddings.client import embed_single
+
             embedding = embed_single(request.q)
         except Exception as e:
             if actual_mode == "vector":
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Vector search requires embedding. Server embedding failed: {e}",
+                    detail=(
+                        "Vector search requires embedding. "
+                        f"Server embedding failed: {e}"
+                    ),
                 ) from e
             # Fall back to BM25 only for hybrid
             actual_mode = "bm25"
@@ -266,6 +278,7 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
             "query": build_bm25_query(request.q, filters),
             "from": (request.page - 1) * request.size,
             "size": request.size,
+            "track_total_hits": True,
         }
         if request.include_facets:
             body["aggs"] = build_facet_aggs()
@@ -292,6 +305,7 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         body = {
             "size": request.size,
             "query": build_knn_query(embedding, k=request.size * 2, filters=filters),
+            "track_total_hits": True,
         }
         if request.include_facets:
             body["aggs"] = build_facet_aggs()
@@ -329,7 +343,9 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
             "size": fetch_size,
             "query": build_knn_query(embedding, k=fetch_size, filters=filters),
         }
-        vector_response = client.search(index=settings.opensearch_index, body=vector_body)
+        vector_response = client.search(
+            index=settings.opensearch_index, body=vector_body
+        )
 
         # Build rank maps: doc_id -> (rank, score, hit)
         # Rank is 1-indexed for RRF formula
@@ -396,10 +412,14 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
         if request.include_facets:
             facet_body = {
                 "size": 0,
-                "query": {"bool": {"filter": filters}} if filters else {"match_all": {}},
+                "query": (
+                    {"bool": {"filter": filters}} if filters else {"match_all": {}}
+                ),
                 "aggs": build_facet_aggs(),
             }
-            facet_response = client.search(index=settings.opensearch_index, body=facet_body)
+            facet_response = client.search(
+                index=settings.opensearch_index, body=facet_body
+            )
             facets = parse_facets(facet_response.get("aggregations", {}))
 
     took_ms = int((time.time() - start_time) * 1000)
@@ -415,7 +435,9 @@ async def hybrid_search(request: HybridSearchRequest) -> HybridSearchResponse:
     )
 
 
-@router.post("/search/batch", response_model=BatchSearchResponse, summary="Batch search")
+@router.post(
+    "/search/batch", response_model=BatchSearchResponse, summary="Batch search"
+)
 async def batch_search(request: BatchSearchRequest) -> BatchSearchResponse:
     """
     Execute multiple search queries in a single request.
@@ -474,12 +496,8 @@ async def list_catalogs() -> CatalogListResponse:
             "catalogs": {
                 "terms": {"field": "catalog_id", "size": 100},
                 "aggs": {
-                    "has_embedding": {
-                        "filter": {"exists": {"field": "embedding"}}
-                    },
-                    "source_files": {
-                        "terms": {"field": "source_file", "size": 1}
-                    },
+                    "has_embedding": {"filter": {"exists": {"field": "embedding"}}},
+                    "source_files": {"terms": {"field": "source_file", "size": 1}},
                 },
             },
             "total": {"value_count": {"field": "supplier_aid"}},
