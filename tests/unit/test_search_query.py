@@ -244,3 +244,47 @@ class TestBuildSearchQuery:
         assert "multi_match" in query["bool"]["must"][0]
         # Should have 3 filters (manufacturer, eclass, price)
         assert len(query["bool"]["filter"]) == 3
+
+    def test_exact_match_query(self):
+        """Test exact match search query (for EAN, supplier ID, etc.)."""
+        query = build_search_query(
+            q="4013288230058",
+            manufacturers=None,
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
+            price_min=None,
+            price_max=None,
+            exact_match=True,
+        )
+        assert "bool" in query
+        must = query["bool"]["must"]
+        assert len(must) == 1
+        # Should use bool with should clauses for exact matching
+        assert "bool" in must[0]
+        assert "should" in must[0]["bool"]
+        should_clauses = must[0]["bool"]["should"]
+        # Should have term queries for exact fields
+        assert {"term": {"ean": "4013288230058"}} in should_clauses
+        assert {"term": {"supplier_aid": "4013288230058"}} in should_clauses
+        assert {"term": {"manufacturer_aid": "4013288230058"}} in should_clauses
+
+    def test_exact_match_with_filters(self):
+        """Test exact match combined with filters."""
+        query = build_search_query(
+            q="12345678",
+            manufacturers=["Wera Werkzeuge GmbH"],
+            eclass_ids=None,
+            eclass_segments=None,
+            order_units=None,
+            price_min=None,
+            price_max=None,
+            exact_match=True,
+        )
+        assert "bool" in query
+        # Should have exact match query in must
+        assert "bool" in query["bool"]["must"][0]
+        assert "should" in query["bool"]["must"][0]["bool"]
+        # Should have manufacturer filter
+        assert len(query["bool"]["filter"]) == 1
+        assert {"term": {"manufacturer_name.keyword": "Wera Werkzeuge GmbH"}} in query["bool"]["filter"]

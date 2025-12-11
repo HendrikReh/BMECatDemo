@@ -486,6 +486,10 @@ function buildSearchParams() {
     const pageSize = document.getElementById('page-size');
     if (pageSize?.value) params.size = pageSize.value;
 
+    // Exact match toggle
+    const exactMatch = document.getElementById('exact-match');
+    if (exactMatch?.checked) params.exact_match = 'true';
+
     return params;
 }
 
@@ -555,6 +559,12 @@ function clearFilters() {
     const selectedUnits = document.getElementById('selected-units');
     if (selectedUnits) {
         selectedUnits.innerHTML = '';
+    }
+
+    // Clear exact match toggle
+    const exactMatch = document.getElementById('exact-match');
+    if (exactMatch) {
+        exactMatch.checked = false;
     }
 
     // Update clear button visibility

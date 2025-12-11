@@ -33,6 +33,7 @@ class APIClient:
         price_min: float | None = None,
         price_max: float | None = None,
         price_band: str | None = None,
+        exact_match: bool = False,
         page: int = 1,
         size: int = 25,
     ) -> dict:
@@ -47,13 +48,17 @@ class APIClient:
             price_min: Minimum price filter
             price_max: Maximum price filter
             price_band: Filter by price band (0-10, 10-50, etc.)
+            exact_match: If True, search for exact matches on EAN, supplier ID, etc.
             page: Page number (1-indexed)
             size: Results per page
 
         Returns:
             Search response with results, total count, and facets
         """
-        params: list[tuple[str, str | int | float]] = [("page", page), ("size", size)]
+        params: list[tuple[str, str | int | float | bool]] = [
+            ("page", page),
+            ("size", size),
+        ]
         if q:
             params.append(("q", q))
         if manufacturers:
@@ -74,6 +79,8 @@ class APIClient:
             params.append(("price_max", price_max))
         if price_band:
             params.append(("price_band", price_band))
+        if exact_match:
+            params.append(("exact_match", "true"))
         return await self._get("/api/v1/search", params)
 
     async def autocomplete(self, q: str) -> list[str]:

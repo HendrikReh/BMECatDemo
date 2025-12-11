@@ -26,6 +26,7 @@ def build_search_query(
     order_units: list[str] | None,
     price_min: float | None,
     price_max: float | None,
+    exact_match: bool = False,
 ) -> dict:
     """Build OpenSearch query from parameters."""
     must = []
@@ -33,22 +34,40 @@ def build_search_query(
 
     # Full-text search
     if q:
-        must.append(
-            {
-                "multi_match": {
-                    "query": q,
-                    "fields": [
-                        "description_short^3",
-                        "description_long",
-                        "manufacturer_name^2",
-                        "supplier_aid",
-                        "ean",
-                    ],
-                    "type": "best_fields",
-                    "fuzziness": "AUTO",
+        if exact_match:
+            # Exact match: search in keyword fields for exact value
+            must.append(
+                {
+                    "bool": {
+                        "should": [
+                            {"term": {"ean": q}},
+                            {"term": {"supplier_aid": q}},
+                            {"term": {"manufacturer_aid": q}},
+                            {"term": {"description_short.keyword": q}},
+                            {"term": {"manufacturer_name.keyword": q}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
                 }
-            }
-        )
+            )
+        else:
+            # Fuzzy full-text search
+            must.append(
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": [
+                            "description_short^3",
+                            "description_long",
+                            "manufacturer_name^2",
+                            "supplier_aid",
+                            "ean",
+                        ],
+                        "type": "best_fields",
+                        "fuzziness": "AUTO",
+                    }
+                }
+            )
 
     # Manufacturer filter (supports multiple with OR)
     if manufacturers:
@@ -210,6 +229,10 @@ async def search_products(
         description="Filter by price band (0-10, 10-50, 50-200, 200-1000, 1000+)",
         examples=["50-200"],
     ),
+    exact_match: bool = Query(
+        False,
+        description="If true, search for exact matches on EAN, supplier ID, etc.",
+    ),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     size: int = Query(
         20, ge=1, le=100, description="Number of results per page (max 100)"
@@ -243,7 +266,14 @@ async def search_products(
     order_units = [u for u in (order_unit or []) if u] or None
 
     query = build_search_query(
-        q, manufacturers, eclass_ids, eclass_segments, order_units, price_min, price_max
+        q,
+        manufacturers,
+        eclass_ids,
+        eclass_segments,
+        order_units,
+        price_min,
+        price_max,
+        exact_match,
     )
 
     body = {

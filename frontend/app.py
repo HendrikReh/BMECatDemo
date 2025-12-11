@@ -100,6 +100,7 @@ async def search(
     price_min: float | None = Query(None),
     price_max: float | None = Query(None),
     price_band: str | None = Query(None),
+    exact_match: bool = Query(False),
     page: int = Query(1, ge=1),
     size: int = Query(default=None),
 ):
@@ -127,6 +128,7 @@ async def search(
             price_min=price_min,
             price_max=price_max,
             price_band=price_band,
+            exact_match=exact_match,
             page=page,
             size=size,
         )
@@ -158,6 +160,7 @@ async def search(
             "price_min": price_min,
             "price_max": price_max,
             "price_band": price_band,
+            "exact_match": exact_match,
         },
     )
 
