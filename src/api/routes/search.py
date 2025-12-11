@@ -217,6 +217,13 @@ async def search_products(
         None,
         description="Filter by order unit(s) (C62=piece, MTR=meter, etc.). Multiple.",
         examples=["C62"],
+    manufacturer: str | None = Query(
+        None,
+        description="Filter by exact manufacturer name",
+        examples=["Walraven GmbH"],
+    ),
+    eclass_id: str | None = Query(
+        None, description="Filter by ECLASS classification ID", examples=["23140307"]
     ),
     price_min: float | None = Query(
         None, ge=0, description="Minimum price filter (inclusive)", examples=[100]
